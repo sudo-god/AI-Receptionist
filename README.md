@@ -13,10 +13,12 @@ This project is a simple AI-powered receptionist built with Flask, MongoDB, and 
   - [Table of Contents](#table-of-contents)
   - [Overview](#overview)
   - [Features](#features)
-  - [Installation and Setup](#installation-and-setup)
-  - [Example `.env` File](#example-env-file)
-  - [Usage and Endpoints](#usage-and-endpoints)
-    - [I have prepared a public postman workspace for you to invoke the endpoints.](#i-have-prepared-a-public-postman-workspace-for-you-to-invoke-the-endpoints)
+  - [Access from AWS](#access-from-aws)
+  - [Run Locally](#run-locally)
+    - [Installation and Setup](#installation-and-setup)
+    - [Example `.env` File](#example-env-file)
+  - [Endpoints](#endpoints)
+      - [I have prepared a public postman workspace for you to invoke the endpoints.](#i-have-prepared-a-public-postman-workspace-for-you-to-invoke-the-endpoints)
     - [1. Business Information Integration](#1-business-information-integration)
     - [2. Appointment Scheduling](#2-appointment-scheduling)
     - [3. AI-Powered Customer Interaction](#3-ai-powered-customer-interaction)
@@ -61,8 +63,13 @@ The solution uses a Generative AI model (Google PaLM, codenamed Gemini) to inter
 
 ---
 
+## Access from AWS 
+I have deployed the app on AWS and can be accessed via `http://16.170.151.93:80`. 
+If you decide to use invoke the app on AWS jump to [Endpoints](#endpoints), otherwise continue further.
 
-## Installation and Setup
+## Run Locally
+
+### Installation and Setup
 
 1. **Clone the Repository**
    ```bash
@@ -93,7 +100,7 @@ The solution uses a Generative AI model (Google PaLM, codenamed Gemini) to inter
 
 ---
 
-## Example `.env` File
+### Example `.env` File
 
 Below is an example `.env` file you might use locally:
 
@@ -114,16 +121,19 @@ Each collection has a specific schema and purpose described in [Notes on Data Mo
 
 ---
 
-## Usage and Endpoints
 
 Once the environment is set and the DB is ready, run the Flask application:
 
 ```bash
 python main.py
 ```
-The app will start on `http://127.0.0.1:5000` by default. 
+The app will start on `http://127.0.0.1:5000` by default.
 
-### I have prepared a public [postman workspace](https://www.postman.com/blue-shadow-459244/workspace/ai-receptionist/collection/19509196-3e7664a8-78be-466c-bb30-e7cfd23360bb?action=share&creator=19509196&active-environment=19509196-e7327572-f864-4ead-a106-16a902e7cb90) for you to invoke the endpoints.
+
+## Endpoints
+#### I have prepared a public [postman workspace](https://www.postman.com/blue-shadow-459244/workspace/ai-receptionist/collection/19509196-3e7664a8-78be-466c-bb30-e7cfd23360bb?action=share&creator=19509196&active-environment=19509196-e7327572-f864-4ead-a106-16a902e7cb90) for you to invoke the endpoints.
+
+If running locally make sure to change the `base_url` variable in the environment `AI Receptionist` in postman to `http://127.0.0.1:5000`.
 
 Below are the endpoints and their usage in detail:
 ### 1. Business Information Integration
