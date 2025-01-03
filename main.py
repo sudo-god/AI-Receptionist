@@ -1,5 +1,5 @@
 import os
-from urllib.request import Request
+from google.auth.transport.requests import Request as GoogleRequest
 from dotenv import load_dotenv
 import logging
 import logging.config
@@ -197,7 +197,7 @@ def schedule():
                     slot_end_time = slot["end_time"]
                     break
             break
-    main_logger.info(f"Slot end time: {slot_end_time}")
+
     calendar.update_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time, "is_booked": False}}}, 
                         {"$set": {"available_slots.$.is_booked": True, 
                                   "available_slots.$.customer_name": customer_name, 
@@ -275,7 +275,7 @@ def authenticate_google_calendar():
 
     if not credentials or not credentials.valid:
         if credentials and credentials.expired and credentials.refresh_token:
-            credentials.refresh(Request(credentials.token_uri+credentials.refresh_token, method='POST'))
+            credentials.refresh(GoogleRequest())
         else:
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             credentials = flow.run_local_server(port=0)
