@@ -250,9 +250,7 @@ async def check_slot(ctx: RunContext[ScheduleData], generated_query: str, origin
         generated_query = generated_query[generated_query.find("["):generated_query.rfind("]")+1]
         generated_query = json.loads(generated_query)
         available_slots = list(calendar.aggregate(generated_query))
-        print(f"Avaialble slots: {available_slots}")
-        print(f"Context: {ctx}")
-        
+
         if ctx.deps.intent == "check_slot_availability":
             engineered_prompt = (
                 'You are an agent that takes in a JSON object and responds in natural language containing the same information.'
@@ -476,7 +474,7 @@ async def validate_result(ctx: RunContext[Intent], final_output: str):
         f"Prompt: {ctx.prompt.strip()}, "
         f"Final Output: {final_output.strip()}"
     )
-    print(f"Engineered prompt: {engineered_prompt}")
+
     result = await validator_agent.run(engineered_prompt)
     if result.data:
         return final_output
@@ -510,7 +508,6 @@ def authenticate_google_calendar():
             try:
                 credentials.refresh(GoogleRequest())
             except Exception as e:
-                print(f"Token refresh error: {e}")
                 credentials = None
         if not credentials:
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
