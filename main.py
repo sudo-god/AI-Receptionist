@@ -303,10 +303,10 @@ async def check_slot(ctx: RunContext[ScheduleData], generated_query: str, origin
                         break
                 break
 
-        # calendar.update_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time, "is_booked": False}}}, 
-        #                     {"$set": {"available_slots.$.is_booked": True, 
-        #                               "available_slots.$.customer_name": customer_name, 
-        #                               "available_slots.$.service": preferred_service}})
+        calendar.update_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time, "is_booked": False}}}, 
+                            {"$set": {"available_slots.$.is_booked": True, 
+                                      "available_slots.$.customer_name": customer_name, 
+                                      "available_slots.$.service": preferred_service}})
         success_response = "Successfully booked appointment."
         custom_success_response = custom_responses.find_one({"query_type": "appointment_scheduling"})["template"]
         if custom_success_response:
@@ -315,98 +315,6 @@ async def check_slot(ctx: RunContext[ScheduleData], generated_query: str, origin
         return {"Status_200": success_response}
     except Exception as e:
         raise ModelRetry(f"Failed to book slot. {e}")
-
-
-# @app.route('/schedule', methods=['POST'])
-# def schedule():
-#     asyncio.set_event_loop(loop)
-
-#     try:
-#         data = None
-#         data = request.json.get("data", None)
-#     except Exception:
-#         original_prompt = request.args.get('prompt', None)
-#     except Exception as e:
-#         return jsonify({"message": f"No request body found. Error: {e}"}), 400
-    
-#     # result = appointment_intent_agent.run_sync(original_prompt, deps=Data(appointment_information=data))
-
-#     aggregate_pipeline = [
-#         { "$unwind": "$available_slots" },
-#         { "$match": { "available_slots.is_booked": False } },
-#         {
-#             "$group": {
-#                 "_id": "$_id",
-#                 "date": {"$first":"$date"}, 
-#                 "available_slots": {"$push":"$available_slots"}
-#             }
-#         }
-#     ]
-#     available_slots = list(calendar.aggregate(aggregate_pipeline))
-
-#     if data is None or not isinstance(data, dict):
-#         if isinstance(original_prompt, str):
-#             result = appointment_intent_agent.run_sync(original_prompt).data
-#             if "check_slot_availability" in result:
-#                 engineered_prompt = (
-#                     'You are an agent that takes in a JSON object and responds in natural language containing the same information.'
-#                     'Ignore ObjectId and present the information in a human-readable format with proper line breaks where needed.'
-#                     f'Here is the available slots: {available_slots}'
-#                 )
-#                 return helper_agent.run_sync(engineered_prompt).data, 200
-            
-#             engineered_prompt = f"Extract the customer name, emails, service, start_time in YYYY-MM-DD HH:MM format from {original_prompt}, into a json object."
-#             extracted_data = helper_agent.run_sync(engineered_prompt).data
-#             main_logger.info(f"Extracted data: {extracted_data}")
-#             data = json.loads(extracted_data[extracted_data.find("{"):extracted_data.rfind("}")+1])
-#             main_logger.info(f"Extracted appointment information: {data}")
-#         else:
-#             return jsonify({"message": "Required field (data) from request body, or parameter (prompt) is missing or has invalid format. Accepted format json for \"data\", and string for \"prompt\"."}), 400
-    
-#     customer_name = data.get("customer_name", None)
-#     emails = data.get("emails", None)
-#     preferred_service = data.get("service", None)
-#     requested_start_dt = data.get("start_time", None)
-
-#     if any([customer_name is None, 
-#             emails is None or not emails,
-#             preferred_service is None, 
-#             requested_start_dt is None]):
-#         return jsonify({"message": "Required fields (name, email, service, start_time in YYYY-MM-DD HH:MM) are missing"}), 400
-#     try:
-#         requested_start_dt = datetime.strptime(requested_start_dt, "%Y-%m-%d %H:%M")
-#     except Exception as e:
-#         main_logger.info(f"Error: {e}")
-#         return jsonify({"message": "start_time format is invalid"}), 400
-
-#     date_str = requested_start_dt.strftime("%Y-%m-%d")
-#     start_time = requested_start_dt.strftime("%H:%M")
-    
-#     main_logger.info(f"Available slots: {available_slots}")
-#     if calendar.find_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time, "is_booked": True}}}):
-#         return jsonify({"message": f"Requested date and time is already booked. Available slots: {available_slots}"}), 409
-#     elif not calendar.find_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time}}}):
-#         return jsonify({"message": f"Requested date and time is not available. Available slots: {available_slots}"}), 404
-    
-#     slot_end_time = None
-#     for day in available_slots:
-#         if day["date"] == date_str:
-#             for slot in day["available_slots"]:
-#                 if slot["start_time"] == start_time:
-#                     slot_end_time = slot["end_time"]
-#                     break
-#             break
-
-#     calendar.update_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time, "is_booked": False}}}, 
-#                         {"$set": {"available_slots.$.is_booked": True, 
-#                                   "available_slots.$.customer_name": customer_name, 
-#                                   "available_slots.$.service": preferred_service}})
-#     success_response = "Successfully booked appointment."
-#     custom_success_response = custom_responses.find_one({"query_type": "appointment_scheduling"})["template"]
-#     if custom_success_response:
-#         success_response = custom_success_response.replace("{customer_name}", customer_name).replace("{service}", preferred_service).replace("{date}", date_str).replace("{start_time}", start_time)
-#     create_gcal_event(preferred_service, customer_name, emails, date_str, start_time, slot_end_time)
-#     return jsonify({"message": success_response}), 200
 
 
 # ============= Task 3. AI-Powered Customer Interaction =============
