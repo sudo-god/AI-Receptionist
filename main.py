@@ -2,7 +2,6 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 import json
-import logging.handlers
 import os
 from typing import List
 from dotenv import load_dotenv
@@ -106,13 +105,22 @@ validator_agent = Agent(
 def get_business_info():
     asyncio.set_event_loop(loop)
 
-    customer_prompt = request.args.get('prompt', None)
+    original_prompt = request.args.get('prompt', None)
     intent = request.args.get('intent', '').split(',')
-    if customer_prompt is None:
+    if original_prompt is None:
         return jsonify({"message": "prompt parameter is required"}), 400
     
-    result = business_info_agent.run_sync(customer_prompt, deps=Intent(intention=intent))
-    return jsonify(result.data), 200
+    try:
+        result = business_info_agent.run_sync(original_prompt, deps=Intent(intention=intent))
+        return result.data, 200
+    except Exception as e:
+        main_logger.error(f"Error: {e}")
+        try:
+            error_body = json.loads(e.body)
+            error_message = error_body.get('error', {}).get('message', 'Unknown error')
+        except Exception:
+            error_message = str(e)
+        return jsonify(f"Failed to {intent}. {error_message}"), 500
 
 
 @business_info_agent.tool
@@ -150,12 +158,12 @@ def run_query(ctx: RunContext[Intent], query_str: str):
 
 
 @business_info_agent.tool_plain(retries=3)
-def log_interaction(customer_prompt: str, generated_query: str, raw_MQL_results: str, final_output: str) -> None:
+def log_interaction(original_prompt: str, generated_query: str, raw_MQL_results: str, final_output: str) -> None:
     ''' Log the interaction between the customer and the AI model.
     '''
     interaction = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "customer_prompt": customer_prompt,
+        "original_prompt": original_prompt,
         "generated_MQL": generated_query,
         "MQL_result": raw_MQL_results,
         "final_output": final_output
@@ -210,18 +218,34 @@ def schedule():
         data = None
         data = request.json.get("data", None)
     except Exception:
-        customer_prompt = request.args.get('prompt', None)
+        original_prompt = request.args.get('prompt', None)
     except Exception as e:
         return jsonify({"message": f"No request body found. Error: {e}"}), 400
     
-    intent = appointment_intent_agent.run_sync(customer_prompt).data
-    main_logger.info(f"scheduling intent: {intent}")
-    result = slot_info_agent.run_sync(customer_prompt, deps=ScheduleData(intent=intent, appointment_info=data))
-    return result.data, 200
+    try:
+        intent = appointment_intent_agent.run_sync(original_prompt).data.strip()
+        main_logger.info(f"Scheduling intent: {intent}")
+        result = slot_info_agent.run_sync(original_prompt, deps=ScheduleData(intent=intent, appointment_info=data))
+        return result.data, 200
+    except Exception as e:
+        main_logger.error(f"Error: {e}")
+        try:
+            error_body = json.loads(e.body)
+            error_message = error_body.get('error', {}).get('message', 'Unknown error')
+        except Exception:
+            error_message = str(e)
+        return jsonify(f"Failed to {intent}. {error_message}"), 500
 
 
 @slot_info_agent.tool
-async def check_slot(ctx: RunContext[ScheduleData], generated_query: str, customer_prompt: str):
+async def check_slot(ctx: RunContext[ScheduleData], generated_query: str, original_prompt: str):
+    ''' Parse and run the generated query and return the results in json format.
+
+    Args:
+        ctx (RunContext): The context object containing the dependencies.
+        generated_query (str): The generated query string.
+        original_prompt (str): The original prompt.
+    '''
     try:
         generated_query = generated_query[generated_query.find("["):generated_query.rfind("]")+1]
         generated_query = json.loads(generated_query)
@@ -240,7 +264,7 @@ async def check_slot(ctx: RunContext[ScheduleData], generated_query: str, custom
 
         data = ctx.deps.appointment_info
         if data is None or not isinstance(data, dict):
-            engineered_prompt = f"Extract the customer_name, service, start_time in YYYY-MM-DD HH:MM format, and emails from {customer_prompt}, into a json object."
+            engineered_prompt = f"Extract the customer_name, service, start_time in YYYY-MM-DD HH:MM format, and emails from {original_prompt}, into a json object."
             extracted_data = await helper_agent.run(engineered_prompt)
             extracted_data = extracted_data.data
             main_logger.info(f"Extracted data: {extracted_data}")
@@ -281,10 +305,10 @@ async def check_slot(ctx: RunContext[ScheduleData], generated_query: str, custom
                         break
                 break
 
-        calendar.update_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time, "is_booked": False}}}, 
-                            {"$set": {"available_slots.$.is_booked": True, 
-                                      "available_slots.$.customer_name": customer_name, 
-                                      "available_slots.$.service": preferred_service}})
+        # calendar.update_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time, "is_booked": False}}}, 
+        #                     {"$set": {"available_slots.$.is_booked": True, 
+        #                               "available_slots.$.customer_name": customer_name, 
+        #                               "available_slots.$.service": preferred_service}})
         success_response = "Successfully booked appointment."
         custom_success_response = custom_responses.find_one({"query_type": "appointment_scheduling"})["template"]
         if custom_success_response:
@@ -293,6 +317,98 @@ async def check_slot(ctx: RunContext[ScheduleData], generated_query: str, custom
         return {"Status_200": success_response}
     except Exception as e:
         raise ModelRetry(f"Failed to book slot. {e}")
+
+
+# @app.route('/schedule', methods=['POST'])
+# def schedule():
+#     asyncio.set_event_loop(loop)
+
+#     try:
+#         data = None
+#         data = request.json.get("data", None)
+#     except Exception:
+#         original_prompt = request.args.get('prompt', None)
+#     except Exception as e:
+#         return jsonify({"message": f"No request body found. Error: {e}"}), 400
+    
+#     # result = appointment_intent_agent.run_sync(original_prompt, deps=Data(appointment_information=data))
+
+#     aggregate_pipeline = [
+#         { "$unwind": "$available_slots" },
+#         { "$match": { "available_slots.is_booked": False } },
+#         {
+#             "$group": {
+#                 "_id": "$_id",
+#                 "date": {"$first":"$date"}, 
+#                 "available_slots": {"$push":"$available_slots"}
+#             }
+#         }
+#     ]
+#     available_slots = list(calendar.aggregate(aggregate_pipeline))
+
+#     if data is None or not isinstance(data, dict):
+#         if isinstance(original_prompt, str):
+#             result = appointment_intent_agent.run_sync(original_prompt).data
+#             if "check_slot_availability" in result:
+#                 engineered_prompt = (
+#                     'You are an agent that takes in a JSON object and responds in natural language containing the same information.'
+#                     'Ignore ObjectId and present the information in a human-readable format with proper line breaks where needed.'
+#                     f'Here is the available slots: {available_slots}'
+#                 )
+#                 return helper_agent.run_sync(engineered_prompt).data, 200
+            
+#             engineered_prompt = f"Extract the customer name, emails, service, start_time in YYYY-MM-DD HH:MM format from {original_prompt}, into a json object."
+#             extracted_data = helper_agent.run_sync(engineered_prompt).data
+#             main_logger.info(f"Extracted data: {extracted_data}")
+#             data = json.loads(extracted_data[extracted_data.find("{"):extracted_data.rfind("}")+1])
+#             main_logger.info(f"Extracted appointment information: {data}")
+#         else:
+#             return jsonify({"message": "Required field (data) from request body, or parameter (prompt) is missing or has invalid format. Accepted format json for \"data\", and string for \"prompt\"."}), 400
+    
+#     customer_name = data.get("customer_name", None)
+#     emails = data.get("emails", None)
+#     preferred_service = data.get("service", None)
+#     requested_start_dt = data.get("start_time", None)
+
+#     if any([customer_name is None, 
+#             emails is None or not emails,
+#             preferred_service is None, 
+#             requested_start_dt is None]):
+#         return jsonify({"message": "Required fields (name, email, service, start_time in YYYY-MM-DD HH:MM) are missing"}), 400
+#     try:
+#         requested_start_dt = datetime.strptime(requested_start_dt, "%Y-%m-%d %H:%M")
+#     except Exception as e:
+#         main_logger.info(f"Error: {e}")
+#         return jsonify({"message": "start_time format is invalid"}), 400
+
+#     date_str = requested_start_dt.strftime("%Y-%m-%d")
+#     start_time = requested_start_dt.strftime("%H:%M")
+    
+#     main_logger.info(f"Available slots: {available_slots}")
+#     if calendar.find_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time, "is_booked": True}}}):
+#         return jsonify({"message": f"Requested date and time is already booked. Available slots: {available_slots}"}), 409
+#     elif not calendar.find_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time}}}):
+#         return jsonify({"message": f"Requested date and time is not available. Available slots: {available_slots}"}), 404
+    
+#     slot_end_time = None
+#     for day in available_slots:
+#         if day["date"] == date_str:
+#             for slot in day["available_slots"]:
+#                 if slot["start_time"] == start_time:
+#                     slot_end_time = slot["end_time"]
+#                     break
+#             break
+
+#     calendar.update_one({"date": date_str, "available_slots": {"$elemMatch": {"start_time": start_time, "is_booked": False}}}, 
+#                         {"$set": {"available_slots.$.is_booked": True, 
+#                                   "available_slots.$.customer_name": customer_name, 
+#                                   "available_slots.$.service": preferred_service}})
+#     success_response = "Successfully booked appointment."
+#     custom_success_response = custom_responses.find_one({"query_type": "appointment_scheduling"})["template"]
+#     if custom_success_response:
+#         success_response = custom_success_response.replace("{customer_name}", customer_name).replace("{service}", preferred_service).replace("{date}", date_str).replace("{start_time}", start_time)
+#     create_gcal_event(preferred_service, customer_name, emails, date_str, start_time, slot_end_time)
+#     return jsonify({"message": success_response}), 200
 
 
 # ============= Task 3. AI-Powered Customer Interaction =============
@@ -314,36 +430,53 @@ chat_agent = Agent(
 @app.route('/chat', methods=['GET'])
 def chat():
     asyncio.set_event_loop(loop)
-    customer_prompt = request.args.get('prompt', None)
-    if customer_prompt is None:
+    original_prompt = request.args.get('prompt', None)
+    if original_prompt is None:
         return jsonify({"message": "A prompt to the AI receptionist is required"}), 400
+    
+    intent = "handle prompt"
+    try:
+        intent = chat_agent.run_sync(original_prompt).data
+        main_logger.info(f"Intent: {intent}")
 
-    intent = chat_agent.run_sync(customer_prompt).data
-    main_logger.info(f"Intent: {intent}")
-
-    if None in intent:
-        return jsonify({"message": "Intent not recognized"}), 400
-    elif "appointment_scheduling" in intent:
-        # return app.test_client().post('/schedule', query_string={'prompt': customer_prompt})
-        intent = appointment_intent_agent.run_sync(customer_prompt).data
-        main_logger.info(f"scheduleing intent: {intent}")
-        if "check_slot_availability" in intent:
-            return slot_info_agent.run_sync(customer_prompt).data, 200
-        elif intent == "is_booking_slot":
-            pass
-    else:
-        result = business_info_agent.run_sync(customer_prompt, deps=Intent(intention=intent))
-        return jsonify(result.data), 200
+        if None in intent:
+            return jsonify({"message": "Intent not recognized"}), 400
+        elif "appointment_scheduling" in intent:
+            # return app.test_client().post('/schedule', query_string={'prompt': original_prompt})
+            intent = appointment_intent_agent.run_sync(original_prompt).data.strip()
+            main_logger.info(f"Scheduling intent: {intent}")
+            try:
+                result = slot_info_agent.run_sync(original_prompt, deps=ScheduleData(intent=intent, appointment_info=None))
+                return result.data, 200
+            except Exception as e:
+                main_logger.error(f"Error: {e}")
+                try:
+                    error_body = json.loads(e.body)
+                    error_message = error_body.get('error', {}).get('message', 'Unknown error')
+                except Exception:
+                    error_message = str(e)
+                return jsonify(f"Failed to {intent}. {error_message}"), 500
+        else:
+            result = business_info_agent.run_sync(original_prompt, deps=Intent(intention=intent))
+            return jsonify(result.data), 200
+    except Exception as e:
+        main_logger.error(f"Error: {e}")
+        try:
+            error_body = json.loads(e.body)
+            error_message = error_body.get('error', {}).get('message', 'Unknown error')
+        except Exception:
+            error_message = str(e)
+        return jsonify(f"Failed to {intent}. {error_message}"), 500
 
 
 @slot_info_agent.result_validator
 @business_info_agent.result_validator
 async def validate_result(ctx: RunContext[Intent], final_output: str):
     engineered_prompt = (
-        f"Prompt: {ctx.prompt}, "
-        f"Final Output: {final_output}"
+        f"Prompt: {ctx.prompt.strip()}, "
+        f"Final Output: {final_output.strip()}"
     )
-
+    print(f"Engineered prompt: {engineered_prompt}")
     result = await validator_agent.run(engineered_prompt)
     if result.data:
         return final_output
