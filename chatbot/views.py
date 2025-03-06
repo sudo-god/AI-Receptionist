@@ -13,9 +13,9 @@ import logging.config
 import yaml
 import hashlib
 
-# from receptionist_agent.main import process_input
-from agentic_rag.graph import process_input
-from agentic_rag.graph import file_upload_handler
+from agents.receptionist_agent.main import process_input
+# from agents.RAG_agent.graph import process_input
+from agents.RAG_agent.graph import file_upload_handler
 
 
 with open("config/logging.yml", "r") as logging_config_file:

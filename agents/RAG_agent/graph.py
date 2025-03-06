@@ -156,7 +156,7 @@ graph = workflow.compile(store=store, checkpointer=memory)
 
 ## ================= Visualizing the graph =================
 
-with open("graph_visualization.jpg", "wb") as f:
+with open("agents/RAG_agent/graph_visualization.jpg", "wb") as f:
     f.write(graph.get_graph().draw_mermaid_png())
 
 ## ================= Running the agent =================
