@@ -23,17 +23,9 @@ MONGODB_URI = os.environ['MONGODB_URI']
 main_logger = logging.getLogger('main')
 
 
-# database_path = "receptionist_agent/database.json"
-# def update_database(database: dict):
-#     with open(database_path, "w") as f:
-#         json.dump(database, f)
-
-
 def connect_to_db(uri: str) -> MongoClient:
     # Create a new client and connect to the server
     client = MongoClient(uri,
-                        #  tls=True,
-                        #  tlsCertificateKeyFile='./config/X509-cert-6143731158356626028.pem',
                          ssl_ca_certs=certifi.where())
 
     # Send a ping to confirm a successful connection
@@ -60,7 +52,6 @@ def crud_client_tool(
                     new_client_email: Annotated[str, "New email address of the client"] = None) -> Optional[dict]:
     """Create, read, update or delete a client"""
     main_logger.debug(f"Attempting to {operation} client {client_email}")
-    # user_clients = accounts.find_one({"account_id": account_id})
     assert operation in ["create", "read", "update", "delete"], "Invalid operation, please use create, read, update or delete"
     if operation == "create":
         existing_client = accounts.find_one({"account_id": account_id, "clients.email": client_email})
@@ -118,16 +109,6 @@ def crud_client_tool(
 @tool
 def check_slot_availability_tool(account_id: str, booking_type: Annotated[str, "Type of booking: inquiries or jobs"]) -> dict:
     """Check the availability of a meeting slot"""
-    # full_database = json.load(open(database_path))
-    # user_database = full_database[account_id]
-    # if booking_type == "job":
-    #     # table = user_database["jobs"]
-    #     table = accounts.find_one({"account_id": account_id})["jobs"]
-    # elif booking_type == "inquiry":
-    #     # table = user_database["inquiries"]
-    #     table = accounts.find_one({"account_id": account_id})["inquiries"]
-    # available_slots = [row["start_time"] for row in table if not row["is_booked"]]
-
     pipeline = [
         {"$match": {"account_id": account_id}},
         {
@@ -152,15 +133,6 @@ def check_slot_availability_tool(account_id: str, booking_type: Annotated[str, "
 @tool
 def check_booked_slots_tool(account_id: str, booking_type: Annotated[str, "Type of booking: inquiries or jobs"]) -> dict:
     """Check the booked slots"""
-    # # full_database = json.load(open(database_path))
-    # # user_database = full_database[account_id]
-    # if booking_type == "job":
-    #     # table = user_database["jobs"]
-    #     table = accounts.find_one({"account_id": account_id})["jobs"]
-    # elif booking_type == "inquiry":
-    #     # table = user_database["inquiries"]
-    #     table = accounts.find_one({"account_id": account_id})["inquiries"]
-    # booked_slots = [row["start_time"] for row in table if row["is_booked"]]
     pipeline = [
         {"$match": {"account_id": account_id}},
         {
@@ -186,56 +158,11 @@ def booking_helper(
                     account_id: str,
                     title: Annotated[str, "Title of the meeting"],
                     client_email: Annotated[str, "Email of the client"],
-                    # date: Annotated[str, "Date of the meeting"],
-                    # time: Annotated[str, "Time of the meeting"],
                     start_time: Annotated[datetime, "Start date and time of the meeting in format YYYY-MM-DD HH:MM"],
                     booking_type: Annotated[str, "Type of booking: jobs or inquiries"],
                     location: Annotated[str, "Location of the meeting"] = 'Virtual') -> dict:
     """Helper function to assist with different types of bookings"""
     assert title and client_email and start_time and location, "Please provide a valid title, client name, start time and location"
-
-    # full_database = json.load(open(database_path))
-    # user_database = full_database[account_id]
-
-    # print(f"Attempting to book a {booking_type} on {start_time.strftime('%Y-%m-%d %H:%M')}")
-    # available_slots = check_slot_availability_tool.invoke({"account_id":account_id, "booking_type":booking_type})["response"]
-    # available_slots = available_slots[available_slots.find("["):available_slots.find("]")+1]
-    # slot_found = False
-    # if booking_type == "job":
-    #     # table = user_database["jobs"]
-    #     table = accounts.find_one({"account_id": account_id})["jobs"]
-    # elif booking_type == "inquiry":
-    #     # table = user_database["inquiries"]
-    #     table = accounts.find_one({"account_id": account_id})["inquiries"]
-
-    # for event in table:
-    #     if event["start_time"] == start_time.strftime('%Y-%m-%d %H:%M'):
-    #         if event["is_booked"]:
-    #             if event["client_email"] == client_email:
-    #                 message = f"You have already booked a slot for {event['title']} on {event['start_time']}"
-    #                 slot_found = True
-    #             break
-    #         else:
-    #             print(f'Fetching client {client_email} from database')
-    #             fetched_client = crud_client_tool.invoke({"account_id":account_id, "operation":"read", "client_email":client_email})["response"]
-    #             if fetched_client == 'Client not found':
-    #                 message = f"Client {client_email} not found, please create a client first"
-    #                 return {"is_interrupted": True, "response": message}
-    #             print(f'Fetched client: {fetched_client}')
-    #             event["title"] = title
-    #             event["client_email"] = client_email
-    #             event["client_name"] = fetched_client["name"]
-    #             event["location"] = location
-    #             event["is_booked"] = True
-    #             slot_found = True
-    #             update_database(full_database)
-    #             message = f"Booked a slot for {booking_type}:\nTitle: {title}\nClient Name: {client_email}\nStart Time: {start_time.strftime('%Y-%m-%d %H:%M')}\nLocation: {location}"
-    #             create_gcal_event(title, fetched_client["name"], client_email, start_time)
-    #             break
-    # if not slot_found:
-    #     message = f"Sorry, your desired slot is not available, please try a different slot. Please choose from the following available slots: {available_slots}"
-    #     return {"is_interrupted": True, "response": message}
-    
 
     fetched_client = crud_client_tool.invoke({"account_id":account_id, "operation":"read", "client_email":client_email})["client"]
     if fetched_client is None:
@@ -323,7 +250,7 @@ SCOPES = ['https://www.googleapis.com/auth/calendar','https://www.googleapis.com
 def get_google_credentials():
     # Load credentials or initiate OAuth flow
     credentials = None
-    token_file = 'receptionist_agent/token.json'
+    token_file = 'agents/receptionist_agent/token.json'
     if os.path.exists(token_file):
         credentials = Credentials.from_authorized_user_file(token_file, SCOPES)
 
@@ -334,7 +261,7 @@ def get_google_credentials():
             except Exception as e:
                 credentials = None
         if not credentials:
-            flow = InstalledAppFlow.from_client_secrets_file("receptionist_agent/credentials.json", SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file("agents/receptionist_agent/credentials.json", SCOPES)
             credentials = flow.run_local_server(port=0)
         # Save the credentials for the next run
         with open(token_file, 'w') as token:
