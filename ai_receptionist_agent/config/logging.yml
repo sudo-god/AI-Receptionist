@@ -20,7 +20,8 @@ handlers:
   main_logs_file:
     class: logging.handlers.RotatingFileHandler
     formatter: simple
-    filename: 'log/application.log'
+    filename: 'receptionist_agent/log/application.log'
+
 
 loggers:
   main:

@@ -1,0 +1,63 @@
+<div class="file-drop-zone">
+  <ngx-file-drop dropZoneLabel="Drop files here" [multiple]="true" (onFileDrop)="dropped($event)" (onFileOver)="fileOver($event)" (onFileLeave)="fileLeave($event)">
+      <ng-template ngx-file-drop-content-tmp let-openFileSelector="openFileSelector">
+        <span>
+          <h5 style="margin: unset; text-align: center">Drop files here</h5>
+          <h6 style="margin: unset; text-align: center">or</h6>
+          <div class="upload-button-container">
+            <button type="button" (click)="openFileSelector()">Browse Files</button>
+          </div>      
+          <span style="margin: unset; text-align: center; font-size: 12px; color: black;">Allowed file types: .pdf, .txt, .csv, .docx, .doc</span>
+        </span>
+      </ng-template>
+  </ngx-file-drop>
+
+  <div class="files-list" *ngIf="allFiles.length">
+    Dropped Files:
+    <span *ngIf="uploading" class="loading">Uploading please wait...</span>
+    <span *ngIf="uploadSuccess" class="success">Upload successful!</span>
+    <span *ngIf="uploadError" class="error">Error: {{ uploadError }}</span>
+
+    <!-- <div *ngIf="uploading" class="loading">
+      <i class="fas fa-spinner fa-spin"></i>
+    </div>
+    <div *ngIf="uploadSuccess" class="success">
+      <i class="fas fa-check-circle"></i>
+    </div>
+    <div *ngIf="uploadError" class="error">
+      <i class="fas fa-times-circle"></i>
+      <span>{{ uploadError }}</span>
+    </div> -->
+
+    <ul style="margin-bottom: 0;">
+      <li *ngFor="let item of allFiles; let i=index">
+        <strong>File: {{ item.name }}</strong>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- 
+<div class="file-drop-container">
+  <ngx-file-drop dropZoneLabel="Drop files here" (onFileDrop)="dropped($event)" (onFileOver)="fileOver($event)" (onFileLeave)="fileLeave($event)">
+    <ng-template ngx-file-drop-content-tmp let-openFileSelector="openFileSelector">
+      Drag and drop files here, or <button type="button" (click)="openFileSelector()">browse</button> for files.
+    </ng-template>
+  </ngx-file-drop>
+
+  <div class="upload-status">
+    <div *ngIf="uploading" class="loading">Uploading...</div>
+    <div *ngIf="uploadSuccess" class="success">Upload successful!</div>
+    <div *ngIf="uploadError" class="error">Error: {{ uploadError }}</div>
+    <button *ngIf="allFiles.length > 0" (click)="clearFiles()">Clear Files</button>
+  </div>
+
+  <div class="files-list" *ngIf="allFiles.length">
+    <h3>Dropped Files:</h3>
+    <ul>
+      <li *ngFor="let item of allFiles; let i=index">
+        <strong>File: {{ item.name }}</strong>
+      </li>
+    </ul>
+  </div>
+</div> -->

@@ -1,0 +1,21 @@
+<div class="page-container">
+  <div class="chat-container">
+      <div class="chat-messages" #chatMessagesContainer>
+        <app-chat-message
+          *ngFor="let msg of messages"
+          [message]="msg"
+        ></app-chat-message>
+        <div *ngIf="status === 'loading'">
+          <app-chat-message
+            [message]="{ text: 'Processing your request...', sender: 'bot', is_interrupted: false }"
+          ></app-chat-message>
+        </div>
+      </div>
+
+      <div class="chat-interaction-container">    
+        <file-upload></file-upload>
+        <app-chat-input (emitMessage)="addMessage($event)" (emitStatus)="updateStatus($event)"></app-chat-input>
+      </div>
+
+  </div>
+</div>

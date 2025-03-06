@@ -1,0 +1,28 @@
+.chat-message {
+    display: flex;
+    margin: 5px;
+}
+
+.chat-message.user {
+    justify-content: flex-end;
+}
+
+.message-content {
+    padding: 8px 16px;
+    border-radius: 1.5rem;
+    max-width: 70%;
+    font-size: 16px;
+    font-weight: 400;
+    font-family: 'Arial';
+}
+
+.user .message-content {
+    background-color: #007bff;
+    color: white !important;
+}
+
+
+.bot .message-content {
+    background-color: #dcdcdc;
+}
+  

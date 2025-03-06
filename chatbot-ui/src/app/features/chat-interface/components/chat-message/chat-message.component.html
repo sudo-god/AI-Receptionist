@@ -1,0 +1,6 @@
+<div [class]="'chat-message ' + (message.sender === 'user' ? 'user' : 'bot')">
+    <div class="message-content" [style.backgroundColor]="message.is_interrupted ? 'yellow' : ''">
+      <div [innerHTML]="sanitizedMessage"></div>
+      <!-- <span>{{ message.text }}</span> -->
+    </div>
+</div>

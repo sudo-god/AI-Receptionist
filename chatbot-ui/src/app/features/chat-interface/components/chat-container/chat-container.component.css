@@ -1,0 +1,40 @@
+.page-container {
+    display: flex;
+    flex-direction: column;
+    min-height: auto;
+    align-items: center;
+    margin-top: 50px;
+}
+
+.chat-header {
+    font-size: 20px;
+    font-weight: bold;
+    align-items: center;
+    width: 100%;
+}
+
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    /* min-height: 95vh; */
+    width: 40%;
+}
+
+.chat-messages {
+    flex-grow: 1; 
+    overflow-y: auto; 
+    height: 70%;
+    padding: 5px; 
+    padding-bottom: 16rem;
+}
+
+
+.chat-interaction-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 40%;
+    transform: translateX(75%);
+}
+

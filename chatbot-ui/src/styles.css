@@ -1,0 +1,16 @@
+.nb-theme-corporate p {
+    color: unset !important;
+}
+
+*, *::before, *::after {
+    box-sizing: unset !important;
+}
+
+
+.file-drop-zone .ngx-file-drop__drop-zone {
+    background-color: #edf1f7 !important;
+}
+
+.user .message-content p a {
+    color: #ffee00 !important;
+}
