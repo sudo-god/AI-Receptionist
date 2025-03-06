@@ -1,0 +1,153 @@
+{
+    "account_id_1": {
+        "clients": [
+            {
+                "name": "John Doe",
+                "email": "john.doe@example.com",
+                "phone": "9999999999"
+            },
+            {
+                "name": "Jane Smith",
+                "email": "jane.smith@example.com",
+                "phone": "8888888888"
+            }
+        ],
+        "inquiries": [
+            {
+                "title": "Meeting with John Doe",
+                "client_email": "john.doe@example.com",
+                "start_time": "2024-01-01 10:00",
+                "location": "123 Main St, Anytown, USA",
+                "is_booked": true
+            },
+            {
+                "title": "",
+                "client_email": "",
+                "start_time": "2024-01-01 11:00",
+                "location": "",
+                "is_booked": false,
+                "client_name": ""
+            },
+            {
+                "title": "",
+                "client_email": "",
+                "start_time": "2024-01-01 12:00",
+                "location": "",
+                "is_booked": false,
+                "client_name": ""
+            },
+            {
+                "title": "Meeting with Jane Smith",
+                "client_id": "2",
+                "start_time": "2024-01-01 14:00",
+                "location": "456 Maple Ave, Anytown, USA",
+                "is_booked": true
+            }
+        ],
+        "jobs": [
+            {
+                "title": "Job with John Doe",
+                "client_email": "john.doe@example.com",
+                "start_time": "2024-01-02 10:00",
+                "location": "123 Main St, Anytown, USA",
+                "is_booked": true
+            },
+            {
+                "title": "",
+                "client_email": "",
+                "start_time": "2024-01-02 11:00",
+                "location": "",
+                "is_booked": false,
+                "client_name": ""
+            },
+            {
+                "title": "",
+                "client_email": "",
+                "start_time": "2024-01-02 12:00",
+                "location": "",
+                "is_booked": false,
+                "client_name": ""
+            },
+            {
+                "title": "Job with Jane Smith",
+                "client_email": "jane.smith@example.com",
+                "start_time": "2024-01-02 14:00",
+                "location": "456 Maple Ave, Anytown, USA",
+                "is_booked": true
+            }
+        ]
+    },
+    "account_id_2": {
+        "clients": [
+            {
+                "name": "John Doe",
+                "email": "john.doe@example.com",
+                "phone": "9999999999"
+            }
+        ],
+        "inquiries": [
+            {
+                "title": "Meeting with John Doe",
+                "client_email": "john.doe@example.com",
+                "start_time": "2024-01-01 10:00",
+                "location": "123 Main St, Anytown, USA",
+                "is_booked": true
+            },
+            {
+                "title": "Demoing the AI receptionist agent",
+                "client_email": "dan@gmail.com",
+                "start_time": "2024-01-01 11:00",
+                "location": "Virtual",
+                "is_booked": true,
+                "client_name": "Dan"
+            },
+            {
+                "title": "",
+                "client_email": "",
+                "start_time": "2024-01-01 12:00",
+                "location": "Virtual",
+                "is_booked": false,
+                "client_name": ""
+            },
+            {
+                "title": "Meeting with Jane Smith",
+                "client_id": "2",
+                "start_time": "2024-01-01 14:00",
+                "location": "456 Maple Ave, Anytown, USA",
+                "is_booked": true
+            }
+        ],
+        "jobs": [
+            {
+                "title": "Job with John Doe",
+                "client_email": "john.doe@example.com",
+                "start_time": "2024-01-02 10:00",
+                "location": "123 Main St, Anytown, USA",
+                "is_booked": true
+            },
+            {
+                "title": "",
+                "client_email": "",
+                "start_time": "2024-01-02 11:00",
+                "location": "",
+                "is_booked": false,
+                "client_name": ""
+            },
+            {
+                "title": "",
+                "client_email": "",
+                "start_time": "2024-01-02 12:00",
+                "location": "",
+                "is_booked": false,
+                "client_name": ""
+            },
+            {
+                "title": "Job with Jane Smith",
+                "client_email": "jane.smith@example.com",
+                "start_time": "2024-01-02 14:00",
+                "location": "456 Maple Ave, Anytown, USA",
+                "is_booked": true
+            }
+        ]
+    }
+}
