@@ -20,12 +20,11 @@ supabase
 
 langchain
 langgraph
+langgraph-supervisor
 langsmith
 langchain_anthropic
 langchain-google-genai
 streamlit
-PyPDF2
-python-docx
 llama-index
 llama-index-llms-gemini
 llama-index-embeddings-gemini

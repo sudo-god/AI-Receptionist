@@ -78,7 +78,7 @@ uvicorn ai_receptionist_chat.asgi:application
 
 **Note: When the response is a yellow bubble, it means that's the human in loop interrupt.**
 
-Open a new browser window and navigate to `http://localhost:3000` to access the chatbot.
+Open a new browser window and navigate to `http://localhost:4200` to access the chatbot.
 
 I've limited the number of user accounts to 2 for now. The accounts are selected automatically, and each browser tab is assigned an account. 
 

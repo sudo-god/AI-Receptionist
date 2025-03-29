@@ -36,5 +36,7 @@
     left: 0;
     width: 40%;
     transform: translateX(75%);
+    background-color: #edf1f7;
+    border-radius: 30px 30px 0px 0px;
 }
 

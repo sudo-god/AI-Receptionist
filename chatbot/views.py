@@ -13,10 +13,11 @@ import logging.config
 import yaml
 import hashlib
 
-from agents.receptionist_agent.main import process_input
-# from agents.RAG_agent.graph import process_input
-from agents.RAG_agent.graph import file_upload_handler
+from django.core.files.storage import FileSystemStorage
+from django.core.files.base import ContentFile
 
+from agents.RAG_agent.graph import file_upload_handler
+from agents.supervisor_agent import process_input
 
 with open("config/logging.yml", "r") as logging_config_file:
     logging.config.dictConfig(yaml.load(logging_config_file, Loader=yaml.FullLoader))
@@ -56,10 +57,6 @@ async def chat_view(request):
         return JsonResponse({"error": "Invalid request method"}, status=405)
 
 
-from django.core.files.storage import FileSystemStorage
-from django.core.files.base import ContentFile
-
-
 @csrf_exempt
 def upload_file(request):
     if request.method != 'POST' or not request.FILES.get('file', None):
@@ -78,14 +75,15 @@ def upload_file(request):
 
     # Check if the file already exists using checksum
     new_checksum = hashlib.md5(uploaded_file.read()).hexdigest()
+    print(f"media dir: {settings.MEDIA_ROOT + '/uploaded-files/raw-files'}")
     destination = FileSystemStorage(location=settings.MEDIA_ROOT + '/uploaded-files/raw-files')
-    print(f"File exists: {destination.exists(uploaded_file.name)}")
     
+    print(f"File exists: {destination.exists(uploaded_file.name)}")
     if not destination.exists(uploaded_file.name):
         destination.save(uploaded_file.name, ContentFile(uploaded_file.read()))
     elif destination.exists(uploaded_file.name) and new_checksum != hashlib.md5(destination.open(uploaded_file.name).read()).hexdigest():
         destination.delete(uploaded_file.name)
-        FileSystemStorage(location=settings.MEDIA_ROOT + f'/uploaded-files/index-storage').delete(uploaded_file.name)
+        FileSystemStorage(location=settings.MEDIA_ROOT + f'/uploaded-files/index-storage').delete(f"{uploaded_file.name}/*")
         destination.save(uploaded_file.name, ContentFile(uploaded_file.read()))
 
     file_upload_handler(file_name=uploaded_file.name, account_id=account_id, key="attachment_processors")

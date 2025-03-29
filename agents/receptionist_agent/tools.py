@@ -50,7 +50,7 @@ def crud_client_tool(
                     client_name: Annotated[str, "Name of the client"] = None,
                     client_phone: Annotated[str, "Phone number of the client"] = None,
                     new_client_email: Annotated[str, "New email address of the client"] = None) -> Optional[dict]:
-    """Create, read, update or delete a client"""
+    """Create, read, update or delete a client information"""
     main_logger.debug(f"Attempting to {operation} client {client_email}")
     assert operation in ["create", "read", "update", "delete"], "Invalid operation, please use create, read, update or delete"
     if operation == "create":
@@ -64,14 +64,20 @@ def crud_client_tool(
         )
         return {"response": f"Client {client_email} created successfully",}
     elif operation == "read":
-        client = accounts.find_one(
+        or_conditions = []
+        if client_email:
+            or_conditions.append({"email": client_email})
+        if client_phone:
+            or_conditions.append({"phone": client_phone})
+        if not or_conditions:
+            return {"response": "Please provide either client email or phone number to search for the client"}
+        
+        client = list(accounts.find(
             {"account_id": account_id, 
-             "clients": {"$elemMatch": {"$or": [
-                 {"email": client_email},
-                 {"phone": client_phone}
-             ]}}},
+             "clients": {"$elemMatch": {"$or": or_conditions}}},
              {"_id": 0, "clients.$": 1}
-            )
+            ))
+        client = client[0] if client else None
         if client and client.get("clients", None):
             client = client['clients'][0]
             return {"response": f"Client found: name: {client['name']}, email: {client['email']}, phone: {client['phone']}", 
@@ -165,6 +171,7 @@ def booking_helper(
     assert title and client_email and start_time and location, "Please provide a valid title, client name, start time and location"
 
     fetched_client = crud_client_tool.invoke({"account_id":account_id, "operation":"read", "client_email":client_email})["client"]
+    main_logger.debug(f"Client fetched: {fetched_client}")
     if fetched_client is None:
         message = f"Client {client_email} not found, please create a client first"
         return {"is_interrupted": True, "response": message}
@@ -177,13 +184,13 @@ def booking_helper(
         message = f"Booked a slot for {booking_type}:\nTitle: {title}\nClient Name: {client_email}\nStart Time: {start_time.strftime('%Y-%m-%d %H:%M')}\nLocation: {location}"
         main_logger.info(message)
         create_gcal_event(title, fetched_client["name"], client_email, start_time)
-        return {"response": message}
+        return {"response": message, "is_interrupted": False}
     
     booked_slot = accounts.find_one({"account_id": account_id, booking_type: {"$elemMatch": {"start_time": start_time.strftime('%Y-%m-%d %H:%M')}}}, {"_id":0, f"{booking_type}.$":1})
     if booked_slot and booked_slot[booking_type][0]["client_email"] == client_email:
         booked_slot = booked_slot[booking_type][0]
         message = f"You have already booked a slot for {booked_slot['title']} on {booked_slot['start_time']}"
-        return {"response": message}
+        return {"response": message, "is_interrupted": False}
     else:
         available_slots = check_slot_availability_tool.invoke({"account_id":account_id, "booking_type":booking_type})["response"]
         available_slots = available_slots[available_slots.find("["):available_slots.find("]")+1]

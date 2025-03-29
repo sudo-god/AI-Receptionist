@@ -44,13 +44,13 @@ class AgentState(TypedDict):
 
 config = {"configurable": {"thread_id": ""}}
 gemini_model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", google_api_key=GEMINI_API_KEY)
-helper_model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", google_api_key=GEMINI_API_KEY)
 response_synthesizer_model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", google_api_key=GEMINI_API_KEY)
+helper_model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", google_api_key=GEMINI_API_KEY)
 model = gemini_model
 
 ## ================= Setting up the agent prompts =================
 
-supervisor_agent_prompt = ChatPromptTemplate.from_messages([
+receptionist_agent_prompt = ChatPromptTemplate.from_messages([
     ("system", (
         "You are a helpful assistant that can perform a few tasks such as creating a client, booking a meeting, and sending an email."
         "Only use the tools you have, do not generate code or instructions for the tools."
@@ -89,16 +89,16 @@ response_synthesizer_prompt = ChatPromptTemplate.from_messages([
 ## ================= Setting up the tools =================
 
 tools = [crud_client_tool, book_job_tool, book_inquiry_tool, send_email_tool, check_slot_availability_tool]
-model = model.bind_tools(tools)
-supervisor_agent = (supervisor_agent_prompt | model)
-helper_agent = (helper_agent_prompt | helper_model.bind_tools(tools))
-response_synthesizer_agent = (response_synthesizer_prompt | response_synthesizer_model)
+# model = model.bind_tools(tools)
+receptionist_llm = (receptionist_agent_prompt | model.bind_tools(tools))
+helper_llm = (helper_agent_prompt | helper_model.bind_tools(tools))
+response_synthesizer_llm = (response_synthesizer_prompt | response_synthesizer_model)
 tools_by_name = {tool.name: tool for tool in tools}
 
 ## ================= Setting up the nodes =================
 
-def supervisor_agent_node(state: AgentState):
-    print("\n\n\nAgent node called")
+async def agent_node(state: AgentState):
+    print("\n\n\nReceptionist Agent node called")
     print(f"Intermediate steps @ BEGINNING of supervisor agent node: {state['intermediate_steps']}")
     print(f"Last tool call @ BEGINNING of supervisor agent node: {state['last_tool_call']}")
     if state["intermediate_steps"] != []:
@@ -116,16 +116,16 @@ def supervisor_agent_node(state: AgentState):
             # "messages": state["messages"],
             "responses": state["responses"]
         }
-        helper_response = response_synthesizer_agent.invoke(helper_agent_inputs, config)
+        helper_response = await response_synthesizer_llm.ainvoke(helper_agent_inputs, config)
         print("\n\n\n=========== Helper INVOKED ==========")
-        print(f"Final response: {helper_response}")
+        print(f"Receptionist final response: {helper_response}")
         print('======================================================\n\n\n')
         helper_response = helper_response.content.replace("```", "")
         return {"final_response": helper_response}
     else:
-        print(f"\n\n\nState: {state}\n\n\n")
-        response = supervisor_agent.invoke(state, config)
-        print(f"AGENT INVOCATION OUTPUT: {response}\n\n\n")
+        print(f"\n\n\nReceptionist Agent State: {state}\n\n\n")
+        response = await receptionist_llm.ainvoke(state, config)
+        print(f"RECEPTIONIST AGENT INVOCATION OUTPUT: {response}\n\n\n")
         agent_actions = {}
         desired_action_order = ["crud_client_tool", "check_slot_availability_tool", "book_inquiry_tool", "book_job_tool", "send_email_tool"]
         for tool_call in response.tool_calls:
@@ -150,31 +150,32 @@ def supervisor_agent_node(state: AgentState):
 
 def run_tool(state: AgentState):
     if state.get("intermediate_steps", [])[0] == state.get("last_tool_call", None):
+        # return state
         return {"response": state["response"]}
     elif isinstance(state["intermediate_steps"], list) and state["intermediate_steps"] != []:
         action = state["intermediate_steps"][0]
-        tool_name = action.tool
-        tool_args = action.tool_input
+        original_tool_name = action.tool
+        original_tool_args = action.tool_input
         out = {"is_interrupted": True}
         outputs = []
         new_out = {}
         while out.get("is_interrupted", False) or new_out.get("is_interrupted", False):
-            print(f"\n\n\n============== Running tool {tool_name} ===============")
-            print(f"Tool args: {tool_args}")
+            print(f"\n\n\n============== Running tool {original_tool_name} ===============")
+            print(f"Tool args: {original_tool_args}")
             print('======================================================\n\n\n')
-            out = tools_by_name[tool_name].invoke(input=tool_args)
+            out = tools_by_name[original_tool_name].invoke(input=original_tool_args)
             print(f"OUT: {out}")
             outputs.append(
                 ToolMessage(
                     content=json.dumps(out),
-                    name=tool_name,
+                    name=original_tool_name,
                     tool_call_id=action.tool_call_id
                 )
             )
             if out.get("is_interrupted", False):
                 state["interrupt_queue"].append({
-                    "tool_name": tool_name,
-                    "tool_args": tool_args,
+                    "tool_name": original_tool_name,
+                    "tool_args": original_tool_args,
                     "reason": out["response"]
                 })
                 human_response = interrupt(out["response"])
@@ -191,7 +192,7 @@ def run_tool(state: AgentState):
                         "messages": state["messages"]
                     }
                     print(f"Helper agent prompt: {prompt}")
-                    helper_out = helper_agent.invoke(helper_agent_inputs, config)
+                    helper_out = helper_llm.invoke(helper_agent_inputs, config)
                     print("\n\n\n=========== Helper INVOKED ==========")
                     print(f"Helper out: {helper_out.content}")
                     print(f"Helper out tool calls: {helper_out.tool_calls}")
@@ -213,6 +214,9 @@ def run_tool(state: AgentState):
                         tool_call_id=helper_out.tool_calls[0]["id"]
                     )
                 )
+                if new_tool_name == original_tool_name and not new_out.get("is_interrupted", True):
+                    break
+
         state["intermediate_steps"].pop(0)
         state["last_tool_call"] = action
         state["responses"].append(out["response"])
@@ -224,10 +228,11 @@ def run_tool(state: AgentState):
             "responses": state["responses"]
         }
     else:
+        # return state
         return {"response": "No tool to run"}
 
 
-def router1(state: AgentState):
+def router(state: AgentState):
     if state.get("intermediate_steps", []) != []:
         return state["intermediate_steps"][0].tool
     return END
@@ -235,8 +240,8 @@ def router1(state: AgentState):
 ## ================= Setting up the graph =================
 
 graph_builder = StateGraph(AgentState)
-entry_point = "supervisor_agent_node"
-graph_builder.add_node("supervisor_agent_node", supervisor_agent_node)
+entry_point = "agent_node"
+graph_builder.add_node(entry_point, agent_node)
 graph_builder.add_node("crud_client_tool", run_tool)
 graph_builder.add_node("book_job_tool", run_tool)
 graph_builder.add_node("book_inquiry_tool", run_tool)
@@ -247,20 +252,20 @@ graph_builder.set_entry_point(entry_point)
 
 graph_builder.add_conditional_edges(
     source=entry_point,  # where in graph to start
-    path=router1,  # function to determine which node is called
+    path=router,  # function to determine which node is called
 )
 
 # create edges from each tool back to the agent
 for tool_obj in tools:
-    graph_builder.add_edge(tool_obj.name, "supervisor_agent_node")
+    graph_builder.add_edge(tool_obj.name, entry_point)
 
 memory = MemorySaver()
-graph = graph_builder.compile(checkpointer=memory)
+receptionist_agent = graph_builder.compile(name="receptionist_agent", checkpointer=memory)
 
 ## ================= Visualizing the graph =================
 
-with open("agents/receptionist_agent/graph_visualization.jpg", "wb") as f:
-    f.write(graph.get_graph().draw_mermaid_png())
+with open("agents/receptionist_agent/receptionist_graph_visualization.jpg", "wb") as f:
+    f.write(receptionist_agent.get_graph().draw_mermaid_png())
 
 ## ================= Running/Invoking the graph =================
 
@@ -282,7 +287,7 @@ async def process_input(user_input: str, account_id: str, is_interrupted: bool =
         inputs = Command(resume=user_input)
 
     print(f"Inputs: {inputs}")
-    events = graph.stream(
+    events = receptionist_agent.stream(
         inputs,
         config
     )
@@ -298,15 +303,15 @@ async def process_input(user_input: str, account_id: str, is_interrupted: bool =
                 if event.get(entry_point, None):
                     ## This response is the final response from the supervisor agent
                     response = event[entry_point]['final_response']
-                elif event.get("responses", None):
+                elif event.get("final_response", None):
                     ## This response is the intermediate responses from the emitted events i.e. intermediate steps/helper agent calls etc
-                    response = event['responses']
+                    response = event['final_response']
+            if response:
+                print('\n\n\n====================== RESPONSE ======================')
+                print(response)
+                print('======================================================\n\n\n')
         except Exception as e:
             print(f"Error: {e}")
-        if response:
-            print('\n\n\n====================== RESPONSE ======================')
-            print(response)
-            print('======================================================\n\n\n')
     return response, is_interrupted
 
 

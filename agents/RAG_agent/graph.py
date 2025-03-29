@@ -39,23 +39,31 @@ main_logger = logging.getLogger('main')
 ## ================= Declaring the state =================
 
 class AgentState(TypedDict):
+    # user_input: str
+    # messages: Annotated[list, add_messages]
+    # account_id: str
+    # final_response: str
+    # intermediate_steps: list[AgentAction]
+    # last_tool_call: AgentAction
+
     user_input: str
     messages: Annotated[list, add_messages]
     account_id: str
-    response: str
-    remaining_steps: int
     intermediate_steps: list[AgentAction]
     last_tool_call: AgentAction
+    responses: list
+    final_response: str
+    is_interrupted: bool
+    interrupt_queue: list[dict]
 
 
 config = {"configurable": {"thread_id": ""}}
 gemini_model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", google_api_key=GEMINI_API_KEY)
-helper_model = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", google_api_key=GEMINI_API_KEY)
 model = gemini_model
 
 ## ================= Setting up the agent prompts =================
 
-agent_prompt = ChatPromptTemplate.from_messages([
+rag_agent_prompt = ChatPromptTemplate.from_messages([
     ("system", (
         'You are an AI assistant that retrieves information either from the attached documents or by querying the database.'
         'You already have access to the documents in the storage and the database, from the backend.'
@@ -68,7 +76,7 @@ agent_prompt = ChatPromptTemplate.from_messages([
 
 tools = [query_attachments, query_database]
 model = model.bind_tools(tools)
-agent = (agent_prompt | model)
+rag_llm = (rag_agent_prompt | model)
 tools_by_name = {tool.name: tool for tool in tools}
 
 ## ================= Setting up the Nodes =================
@@ -76,13 +84,13 @@ tools_by_name = {tool.name: tool for tool in tools}
 async def agent_node(state: AgentState, config: RunnableConfig):
     if state.get('intermediate_steps', []) != []:
         # main_logger.info(f"intermediate_steps in agent_node: {state['intermediate_steps']}\n\n\n")
-        return {"response": state["response"]}
+        return {"final_response": state["final_response"]}
     elif state.get('intermediate_steps', []) == [] and state.get('last_tool_call', None) is not None:
         # main_logger.info("RAN ALL TOOLS\n\n\n")
-        return {"response": state["response"]}
+        return {"final_response": state["final_response"]}
     else:
-        print(f"State: {state}")
-        response = await agent.ainvoke(state, config)
+        print(f"RAG Agent State: {state}")
+        response = await rag_llm.ainvoke(state, config)
         agent_actions = []
         for tool_call in response.tool_calls:
             tool_call["args"]["account_id"] = state["account_id"]
@@ -96,7 +104,7 @@ async def agent_node(state: AgentState, config: RunnableConfig):
         return {
             "messages": [response],
             "intermediate_steps": agent_actions,
-            "response": response.content
+            "final_response": response.content
         }
 
 
@@ -116,12 +124,12 @@ async def tool_node(state: AgentState):
         )
         state["intermediate_steps"].remove(action)
         state["last_tool_call"] = action
-        state["response"] += ("\n" + tool_response)
+        state["final_response"] += ("\n" + tool_response)
     return {
         "messages": outputs, 
         "intermediate_steps": state["intermediate_steps"],
         "last_tool_call": state["last_tool_call"],
-        "response": state["response"]
+        "final_response": state["final_response"]
     }
 
 ## ================= Define the conditional edge logic =================
@@ -138,26 +146,26 @@ memory = MemorySaver()
 store = InMemoryStore()
 
 workflow = StateGraph(AgentState)
-workflow.add_node("agent_node", agent_node)
+workflow.add_node(entry_point, agent_node)
 workflow.add_node("query_attachments", tool_node)
 workflow.add_node("query_database", tool_node)
 
 workflow.set_entry_point(entry_point)
 workflow.add_conditional_edges(
-    "agent_node",
+    entry_point,
     router
 )
 
 # Create edges from each tool back to the agent
 for tool_obj in tools:
-    workflow.add_edge(tool_obj.name, "agent_node")
+    workflow.add_edge(tool_obj.name, entry_point)
 
-graph = workflow.compile(store=store, checkpointer=memory)
+rag_agent = workflow.compile(name="rag_agent", store=store, checkpointer=memory)
 
 ## ================= Visualizing the graph =================
 
-with open("agents/RAG_agent/graph_visualization.jpg", "wb") as f:
-    f.write(graph.get_graph().draw_mermaid_png())
+with open("agents/RAG_agent/rag_graph_visualization.jpg", "wb") as f:
+    f.write(rag_agent.get_graph().draw_mermaid_png())
 
 ## ================= Running the agent =================
 
@@ -172,13 +180,13 @@ async def process_input(user_input: str, account_id: str, is_interrupted: bool =
         "account_id": account_id,
         "intermediate_steps": [],
         "last_tool_call": None,
-        "response": ""
+        "final_response": ""
     }
 
     if is_interrupted:
         inputs = Command(resume=user_input)
 
-    events = graph.astream(
+    events = rag_agent.astream(
         inputs,
         config
     )
@@ -193,11 +201,11 @@ async def process_input(user_input: str, account_id: str, is_interrupted: bool =
             response = None
 
             if event.get(entry_point, None):
-                response = event[entry_point]['response']
-            elif event.get("response", None):
-                response = event['response']
+                response = event[entry_point]['final_response']
+            elif event.get("final_response", None):
+                response = event['final_response']
         if response:
-            print('\n\n\n====================== RESPONSE ======================')
+            print('\n\n\n====================== RAG AGENT RESPONSE ======================')
             main_logger.info(response)
             print('======================================================\n\n\n')
     return response, is_interrupted

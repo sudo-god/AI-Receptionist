@@ -113,7 +113,6 @@ class AttachmentProcessor:
         self.index.set_index_id(self.file_name)
         self.index.storage_context.persist(index_storage_path)
 
-
     def __parse_txt(self):
         text = self.attachment.read().decode()
         self.transformed_chunks = transform_text_doc(url=None, source_name=self.file_name, text=text, build_index=True, index=self.index)

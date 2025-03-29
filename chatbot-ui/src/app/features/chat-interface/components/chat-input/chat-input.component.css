@@ -1,8 +1,7 @@
 .chat-input-container {
-    padding: 5px;
+    padding: 5px 0px;
     display: flex;
     align-items: center;
-    background-color: #edf1f7;
     padding-bottom: 2rem;
 }
 
